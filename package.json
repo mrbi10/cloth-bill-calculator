@@ -1,7 +1,7 @@
 {
   "name": "cloth_calculator",
   "version": "0.1.0",
-  "homepage": "https://mrbi10.github.io/cloth-bill-calculator",
+  "homepage": "https://cloth.mrbi.live",
   "private": true,
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
