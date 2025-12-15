@@ -1,38 +1,115 @@
-.App {
-  text-align: center;
+/* Custom CSS for Apple-Inspired UI */
+/* Define color palette and UI variables */
+:root {
+  /* Light Mode (Default) */
+  --color-background-primary: #f4f4f9; /* Soft Neutral */
+  --color-background-secondary: #ffffff; /* Component background */
+  --color-text-primary: #1c1c1e;
+  --color-text-secondary: #8e8e93;
+  --color-accent: #007aff; /* Apple Blue */
+  --color-border-subtle: #d1d1d6;
+  --color-surface-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --color-surface-shadow-hover: 0 8px 16px rgba(0, 0, 0, 0.12);
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.dark {
+  /* Dark Mode */
+  --color-background-primary: #121214; /* Deep Contrast Dark */
+  --color-background-secondary: #1c1c1e; /* Component background */
+  --color-text-primary: #f4f4f9;
+  --color-text-secondary: #8e8e93;
+  --color-accent: #0a84ff; /* Slightly brighter Apple Blue for dark contrast */
+  --color-border-subtle: #2c2c2e;
+  --color-surface-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --color-surface-shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.6);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+body {
+  background-color: var(--color-background-primary);
+  color: var(--color-text-primary);
+  font-family: 'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif; /* Precise, Calm Type */
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+/* Key Styles for Apple Feel */
+
+/* 1. Glassmorphism & Shadow (Fluent Surface) */
+.glass-card {
+  background-color: var(--color-background-secondary);
+  border-radius: 14px; /* Rounded corners */
+  box-shadow: var(--color-surface-shadow); /* Smooth shadow */
+  padding: 24px;
+  transition: box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1), transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+  /* Optional: Subtle backdrop blur for true glass effect */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.glass-card:hover {
+  box-shadow: var(--color-surface-shadow-hover);
+  /* Subtle lift micro-interaction */
+  transform: translateY(-2px);
+}
+
+/* 2. Form Control (Native Feel) */
+.input-field, .select-field {
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 4px; /* Breathing room */
+  margin-bottom: 16px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+  background-color: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  font-size: 16px;
+  /* Subtle inner shadow for depth (optional) */
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease-in-out;
+  /* Ensure a safe tap area (thumb-friendly) */
+  min-height: 44px; 
+  -webkit-appearance: none; /* Reset native styles */
+}
+.input-field:focus, .select-field:focus {
+  border-color: var(--color-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3); /* Strong focus state */
+}
+
+/* 3. Typography & Spacing */
+.page-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 30px; /* Generous breathing space */
+  letter-spacing: -0.5px; /* Precise typography */
+}
+.label-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary); /* Calm */
+  margin-bottom: 4px;
+  display: block;
+}
+
+/* 4. Results Section (Table/List) */
+.result-container {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: 20px;
+  margin-top: 20px;
+}
+.result-row {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 16px;
 }
-
-.App-link {
-  color: #61dafb;
+.result-label {
+  color: var(--color-text-secondary);
+  font-weight: 500;
 }
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.result-value {
+  font-weight: 600;
+}
+.result-total {
+  font-weight: 700;
+  color: var(--color-accent);
+  font-size: 18px;
 }
