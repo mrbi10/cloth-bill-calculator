@@ -14,6 +14,59 @@ const API_URL =
 
 // --- THEME & STYLES (Apple UI Inspired) ---
 
+const translations = {
+  en: {
+    title: "Fabric Requirement & Cost Calculator",
+    fabricSelection: "Fabric Selection",
+    clothType: "Cloth Type",
+    thickness: "Thickness / Grade",
+    color: "Color",
+    orderDetails: "Order Details",
+    quantity: "Quantity (Pieces)",
+    pricePerMeter: "Price per Meter",
+    addItem: "Add Item to Bill",
+    exportPdf: "Export Bill as PDF",
+    cuttingPlan: "Cutting Plan",
+    estimatedTotal: "ESTIMATED TOTAL COST",
+    grandTotal: "GRAND TOTAL (Bill)",
+    loading: "Loading fabric data...",
+    selectHint: "Select a complete fabric item to see calculations",
+    StitchRateperPiece: "Stitch Rate per Piece",
+    cuttingHint: "The cutting plan will show how much raw cloth is needed.",
+    calculator: "Calculator",
+    history: "History",
+    updateCloth: "Update Cloth",
+    lightMode: "Switch to Light Mode",
+    darkMode: "Switch to Dark Mode",
+  },
+
+  ta: {
+    title: "துணி தேவை மற்றும் செலவு கணக்கீடு",
+    fabricSelection: "துணி தேர்வு",
+    clothType: "துணி வகை",
+    thickness: "தரம் / தடிப்பு",
+    color: "நிறம்",
+    orderDetails: "ஆர்டர் விவரங்கள்",
+    quantity: "எண்ணிக்கை (பீசுகள்)",
+    pricePerMeter: "ஒரு மீட்டருக்கான விலை",
+    addItem: "பில்லில் சேர்க்க",
+    exportPdf: "PDF ஆக பில் ஏற்றுமதி",
+    cuttingPlan: "வெட்டும் திட்டம்",
+    estimatedTotal: "மதிப்பிடப்பட்ட மொத்த செலவு",
+    grandTotal: "மொத்த தொகை",
+    loading: "துணி விவரங்கள் ஏற்றப்படுகிறது...",
+    selectHint: "கணக்கீடுகளை பார்க்க முழு துணி விவரத்தை தேர்வு செய்யவும்",
+    StitchRateperPiece: "ஒரு துண்டுக்கு தையல் வீதம்",
+    cuttingHint: "எவ்வளவு மூல துணி தேவை என்பதை வெட்டும் திட்டம் காட்டும்",
+    calculator: "கணக்கீடு",
+    history: "வரலாறு",
+    updateCloth: "துணி புதுப்பிப்பு",
+    lightMode: "ஒளி முறை",
+    darkMode: "இருள் முறை",
+  }
+};
+
+
 // 1. Define Theme Colors
 const lightTheme = {
   backgroundPrimary: "#f2f2f7", // System Grouped Background
@@ -169,7 +222,7 @@ const ReactSelect = ({
         options={selectOptions}
         isDisabled={isDisabled}
         isClearable
-        placeholder={`Select ${label}`}
+        placeholder={label}
         styles={{
           control: (base, state) => ({
             ...base,
@@ -314,9 +367,18 @@ const Spinner = ({ theme }) => (
 function App() {
   const [cloths, setCloths] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem("theme");
+    return saved ? saved === "dark" : true;
+  });
+
+  const [lang, setLang] = useState(() => {
+    return localStorage.getItem("lang") || "en";
+  });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [items, setItems] = useState([]);
+  const t = (key) => translations[lang][key] || key;
+
 
   const navigate = useNavigate();
 
@@ -328,6 +390,37 @@ function App() {
   const [quantity, setQuantity] = useState("");
   const [pricePerMeter, setPricePerMeter] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+
+
+
+  useEffect(() => {
+    localStorage.setItem("theme", isDarkMode ? "dark" : "light");
+  }, [isDarkMode]);
+
+  useEffect(() => {
+    localStorage.setItem("lang", lang);
+  }, [lang]);
+
+
+
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+
+    const onScroll = () => {
+      if (window.scrollY > lastScrollY && window.scrollY > 60) {
+        setShowControls(false); // scrolling down
+      } else {
+        setShowControls(true); // scrolling up
+      }
+      lastScrollY = window.scrollY;
+    };
+
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+
 
   // --- LOGIC FUNCTIONS ---
 
@@ -339,7 +432,7 @@ function App() {
     }
 
     const qty = Number(quantity);
-    const price = Number(pricePerMeter);
+    const price = Number(pricePerMeter || selected.price_per_meter);
 
     if (!qty || qty <= 0) {
       Swal.fire("Error", "Enter a valid quantity (> 0).", "warning");
@@ -361,6 +454,7 @@ function App() {
       rawLengthMeters,
       rawClothCost,
       stitchingCost,
+      pricePerMeter: price,
       totalCost,
     };
 
@@ -525,6 +619,8 @@ function App() {
   };
 
 
+
+
   // --- EFFECTS ---
 
   // Effect to handle responsiveness
@@ -564,6 +660,15 @@ function App() {
     (c) => c.cloth_name === clothName && c.thickness === thickness && c.color === color
   );
 
+  useEffect(() => {
+    if (selected && selected.price_per_meter) {
+      setPricePerMeter(String(selected.price_per_meter));
+    } else {
+      setPricePerMeter("");
+    }
+  }, [selected]);
+
+
   let piecesPerRow = 0;
   let rowsNeeded = 0;
   let rawLengthInches = 0;
@@ -575,7 +680,7 @@ function App() {
   // Primary calculation logic
   if (selected && Number(quantity) > 0 && Number(pricePerMeter) >= 0) {
     const qty = Number(quantity);
-    const price = Number(pricePerMeter);
+    const price = Number(pricePerMeter || selected.price_per_meter);
     const reqWidth = Number(selected.req_width_in);
     const reqLength = Number(selected.req_length_in);
     const stitchRate = Number(selected.stitch_rate);
@@ -634,107 +739,124 @@ function App() {
   return (
     <div style={styles.container(currentTheme)}>
       {/* Fixed Navigation */}
+      {/* Top Navigation Bar */}
+      {/* Top Navigation Bar */}
       <div
         style={{
           position: "fixed",
           top: 20,
           left: 20,
+          right: 20,
           display: "flex",
-          gap: "10px",
-          zIndex: 50,
+          alignItems: "center",
+          justifyContent: "space-between",
+          zIndex: 100,
         }}
       >
-        <button
-          onClick={() => navigate("/")}
-          style={styles.navButton(currentTheme)}
-        >
-          🧮 Calculator
-        </button>
-        <button
-          onClick={() => navigate("/history")}
-          style={styles.navButton(currentTheme)}
-        >
-          📜 History
-        </button>
-        <button
-          onClick={() => navigate("/fabric")}
-          style={styles.navButton(currentTheme)}
-        >
-          🧵 Update Cloth
-        </button>
-
-        <button
-          onClick={() => setIsDarkMode(!isDarkMode)}
-          style={styles.toggleButton(currentTheme)}
-          title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-        >
-          <svg
-            style={{ width: "24px", height: "24px", color: currentTheme.textSecondary }}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
+        {/* Left buttons */}
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            onClick={() => navigate("/")}
+            style={styles.navButton(currentTheme)}
           >
-            {isDarkMode ? (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-              />
-            ) : (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-              />
-            )}
-          </svg>
-        </button>
+            🧮 {t("calculator")}
+          </button>
+
+          <button
+            onClick={() => navigate("/history")}
+            style={styles.navButton(currentTheme)}
+          >
+            📜 {t("history")}
+          </button>
+
+          <button
+            onClick={() => navigate("/fabric")}
+            style={styles.navButton(currentTheme)}
+          >
+            🧵 {t("updateCloth")}
+          </button>
+        </div>
+
+        {/* Right controls */}
+        <div
+          style={{
+            display: "flex",
+            gap: "10px",
+            alignItems: "center",
+            transform: showControls ? "translateY(0)" : "translateY(-16px)",
+            opacity: showControls ? 1 : 0,
+            pointerEvents: showControls ? "auto" : "none",
+            transition: "transform 0.25s ease, opacity 0.25s ease",
+          }}
+        >
+          {/* Language */}
+          <button
+            onClick={() => setLang((prev) => (prev === "en" ? "ta" : "en"))}
+            style={{
+              padding: "8px 12px",
+              borderRadius: "8px",
+              border: `1px solid ${currentTheme.borderSubtle}`,
+              background: currentTheme.backgroundSecondary,
+              color: currentTheme.textPrimary,
+              fontWeight: 600,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {lang === "en" ? "தமிழ்" : "EN"}
+          </button>
+
+          {/* Theme */}
+          <button
+            onClick={() => setIsDarkMode((prev) => !prev)}
+            style={{
+              ...styles.toggleButton(currentTheme),
+              position: "relative",   // override fixed
+              top: "auto",
+              right: "auto",
+            }}
+            title={isDarkMode ? t("lightMode") : t("darkMode")}
+          >
+            <svg
+              style={{
+                width: 22,
+                height: 22,
+                color: currentTheme.textSecondary,
+              }}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              {isDarkMode ? (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 3v1m0 16v1m9-9h-1M4 12H3
+             m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707
+             m12.728 0l-.707.707M6.343 17.657l-.707.707
+             M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                />
+              ) : (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M20.354 15.354A9 9 0 018.646 3.646
+             9.003 9.003 0 0012 21
+             a9.003 9.003 0 008.354-5.646z"
+                />
+              )}
+            </svg>
+          </button>
+        </div>
+
       </div>
 
-      {/* Dark Mode Toggle Button */}
-
-      <button
-        onClick={() => setIsDarkMode(!isDarkMode)}
-        style={{
-          ...styles.toggleButton(currentTheme),
-          position: "fixed",
-          top: 20,
-          right: 20,
-          zIndex: 50,
-        }}
-        title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-      >
-        <svg
-          style={{ width: "24px", height: "24px", color: currentTheme.textSecondary }}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          {isDarkMode ? (
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-            />
-          ) : (
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-            />
-          )}
-        </svg>
-      </button>
 
       {/* Main Card */}
       <div style={cardStyle}>
-        <h2 style={titleStyle}>Fabric Requirement & Cost Calculator</h2>
+        <h2 style={titleStyle}>{t("title")}</h2>
 
         {isLoading ? (
           <div
@@ -749,18 +871,22 @@ function App() {
             }}
           >
             <Spinner theme={currentTheme} />
-            <span style={{ marginLeft: "10px", fontWeight: "500" }}>Loading fabric data...</span>
+            <span style={{ marginLeft: "10px", fontWeight: "500" }}>  {t("loading")}
+            </span>
           </div>
         ) : (
           <>
             {/* Column 1: Inputs & Actions */}
             <div style={inputColumnStyle}>
-              <div style={styles.sectionHeader(currentTheme)}>Fabric Selection</div>
+              <div style={styles.sectionHeader(currentTheme)}>
+                {t("fabricSelection")}
+              </div>
 
               {/* Fabric Selects */}
               <ReactSelect
-                label="Cloth Type"
+                label={t("clothType")}
                 value={clothName}
+                placeholder={t("clothType")}
                 onChange={(val) => {
                   setClothName(val);
                   setThickness("");
@@ -771,7 +897,7 @@ function App() {
               />
 
               <ReactSelect
-                label="Thickness / Grade"
+                label={t("thickness")}
                 value={thickness}
                 onChange={(val) => {
                   setThickness(val);
@@ -783,7 +909,7 @@ function App() {
               />
 
               <ReactSelect
-                label="Color"
+                label={t("color")}
                 value={color}
                 onChange={(val) => setColor(val)}
                 options={colorOptions}
@@ -794,11 +920,13 @@ function App() {
               <div style={styles.separator(currentTheme)} />
 
               {/* Order Details */}
-              <div style={styles.sectionHeader(currentTheme)}>Order Details</div>
+              <div style={styles.sectionHeader(currentTheme)}>
+                {t("orderDetails")}
+              </div>
 
               <div style={inputGridStyle}>
                 <ClarityInput
-                  label="Quantity (Pieces)"
+                  label={t("quantity")}
                   type="number"
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
@@ -808,18 +936,21 @@ function App() {
                 />
 
                 <ClarityInput
-                  label="Price per Meter"
+                  label={t("pricePerMeter")}
                   type="number"
                   value={pricePerMeter}
                   onChange={(e) => setPricePerMeter(e.target.value)}
                   unit="₹ / m"
                   placeholder="0.00"
                   theme={currentTheme}
+                  disabled={!selected}
                 />
+
+
               </div>
 
               <div style={{ ...styles.resultRow(currentTheme), borderBottom: 'none', padding: '10px 0' }}>
-                <span style={styles.resultLabel(currentTheme)}>Stitch Rate per Piece</span>
+                <span style={styles.resultLabel(currentTheme)}>{t("StitchRateperPiece")}</span>
                 <span style={styles.resultValue(currentTheme)}>₹{selected ? Number(selected.stitch_rate).toFixed(2) : "0.00"}</span>
               </div>
 
@@ -849,7 +980,7 @@ function App() {
                   boxShadow: "0 2px 8px rgba(0, 122, 255, 0.3)",
                 }}
               >
-                {isSaving ? "Processing..." : "Add Item to Bill"}
+                {isSaving ? "Processing..." : t("addItem")}
               </button>
 
               <button
@@ -872,7 +1003,9 @@ function App() {
                   transition: "background-color 0.2s, opacity 0.2s",
                 }}
               >
-                {isSaving ? "Saving Bill..." : `Export Bill as PDF (${items.length} items)`}
+                {isSaving
+                  ? "Saving Bill..."
+                  : `${t("exportPdf")} (${items.length})`}
               </button>
             </div>
 
@@ -882,7 +1015,9 @@ function App() {
                 <div style={{ padding: "0 10px" }}>
 
                   {/* Cutting Plan */}
-                  <div style={styles.sectionHeader(currentTheme)}>📐 Cutting Plan</div>
+                  <div style={styles.sectionHeader(currentTheme)}>
+                    📐 {t("cuttingPlan")}
+                  </div>
                   <div style={{ marginBottom: '20px' }}>
                     <div style={styles.resultRow(currentTheme)}>
                       <span style={styles.resultLabel(currentTheme)}>Raw Cloth Width (Fixed)</span>
@@ -923,7 +1058,7 @@ function App() {
 
                   {/* Estimated Total */}
                   <div style={{ ...styles.resultRow(currentTheme), borderBottom: 'none' }}>
-                    <span style={styles.resultTotal(currentTheme)}>ESTIMATED TOTAL COST</span>
+                    <span style={styles.resultTotal(currentTheme)}>  {t("estimatedTotal")}</span>
                     <span style={styles.resultTotal(currentTheme)}>₹{totalCost.toFixed(2)}</span>
                   </div>
 
@@ -945,7 +1080,8 @@ function App() {
 
                       {/* Grand Total */}
                       <div style={{ ...styles.resultRow(currentTheme), borderBottom: 'none' }}>
-                        <span style={styles.resultTotal(currentTheme)}>GRAND TOTAL (Bill)</span>
+                        <span style={styles.resultTotal(currentTheme)}>  {t("grandTotal")}
+                        </span>
                         <span style={styles.resultTotal(currentTheme)}>
                           ₹{grandTotal.toFixed(2)}
                         </span>
@@ -956,8 +1092,8 @@ function App() {
                 </div>
               ) : (
                 <div style={{ textAlign: "center", padding: "40px", color: currentTheme.textSecondary }}>
-                  <p style={{ fontWeight: "600", fontSize: "16px" }}>Select a complete fabric item to see calculations.</p>
-                  <p style={{ marginTop: "10px", fontSize: "14px" }}>The cutting plan will show how much raw cloth is needed.</p>
+                  <p style={{ fontWeight: "600", fontSize: "16px" }}><p>{t("selectHint")}</p></p>
+                  <p style={{ marginTop: "10px", fontSize: "14px" }}>  {t("cuttingHint")}</p>
                 </div>
               )}
             </div>
