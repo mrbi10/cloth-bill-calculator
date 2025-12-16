@@ -12,8 +12,10 @@
     "jspdf": "^3.0.4",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "react-router-dom": "^7.10.1",
     "react-scripts": "5.0.1",
     "react-select": "^5.10.2",
+    "sweetalert2": "^11.26.10",
     "web-vitals": "^2.1.4"
   },
   "scripts": {

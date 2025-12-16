@@ -1,113 +1,54 @@
 import { useEffect, useState } from "react";
 import Select from "react-select";
 import jsPDF from "jspdf";
+import Swal from "sweetalert2";
+import { useNavigate } from "react-router-dom";
 
+// --- CONSTANTS ---
+const SHEET_ID = "1SLKCs9jTObGlI5o5npWm232gfLBxBxG_UQ0mMk_7tKU"; // Unused in this file, but kept for context
+const SHEET_NAME = "cloths"; // Unused in this file, but kept for context
+const RAW_WIDTH_IN = 60; // Standard raw cloth width in inches
+const INCHES_PER_METER = 39.37; // Updated value for better accuracy
+const API_URL =
+  "https://script.google.com/macros/s/AKfycbxW6cFOEI-g-4GpO3TmtH3UHQc1cn7b2kTFby4gCbxi7hFUAmHvREzW87nqO-D86ImI/exec";
 
-const SHEET_ID = "1SLKCs9jTObGlI5o5npWm232gfLBxBxG_UQ0mMk_7tKU";
-const SHEET_NAME = "cloths";
-const RAW_WIDTH_IN = 60;
-const INCHES_PER_METER = 39;
+// --- THEME & STYLES (Apple UI Inspired) ---
 
-const ReactSelect = ({
-  label,
-  value,
-  onChange,
-  options,
-  isDisabled,
-  theme
-}) => {
-  const selectOptions = options.map(o => ({
-    value: o,
-    label: o
-  }));
-
-  return (
-    <div style={{ marginBottom: "16px" }}>
-      <label style={styles.label(theme)}>{label}</label>
-      <Select
-        value={selectOptions.find(opt => opt.value === value) || null}
-        onChange={opt => onChange(opt ? opt.value : "")}
-        options={selectOptions}
-        isDisabled={isDisabled}
-        isClearable
-        placeholder={`Select ${label}`}
-        styles={{
-          control: (base, state) => ({
-            ...base,
-            backgroundColor: theme.backgroundSecondary,
-            borderColor: state.isFocused
-              ? theme.accent
-              : theme.borderSubtle,
-            boxShadow: "none",
-            minHeight: "44px",
-            borderRadius: "8px"
-          }),
-          menu: base => ({
-            ...base,
-            backgroundColor: theme.backgroundSecondary,
-            zIndex: 20
-          }),
-          singleValue: base => ({
-            ...base,
-            color: theme.textPrimary
-          }),
-          placeholder: base => ({
-            ...base,
-            color: theme.textSecondary
-          }),
-          option: (base, state) => ({
-            ...base,
-            backgroundColor: state.isSelected
-              ? theme.accent
-              : state.isFocused
-                ? theme.borderSubtle
-                : "transparent",
-            color: state.isSelected
-              ? "#fff"
-              : theme.textPrimary,
-            cursor: "pointer"
-          })
-        }}
-      />
-    </div>
-  );
-};
-
-// --- STYLES OBJECT ---
-
-// 1. Define Theme Colors (Must come first to avoid TDZ)
+// 1. Define Theme Colors
 const lightTheme = {
-  backgroundPrimary: "#f4f4f9",
-  backgroundSecondary: "#ffffff",
-  textPrimary: "#1c1c1e",
-  textSecondary: "#8e8e93",
-  accent: "#007aff",
-  borderSubtle: "#d1d1d6",
+  backgroundPrimary: "#f2f2f7", // System Grouped Background
+  backgroundSecondary: "#ffffff", // System Primary Background
+  textPrimary: "#1c1c1e", // System Label
+  textSecondary: "#636366", // System Secondary Label
+  accent: "#007aff", // System Blue
+  borderSubtle: "#e5e5ea", // System Separator
   shadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
+  buttonHover: "rgba(0, 122, 255, 0.05)",
 };
 
 const darkTheme = {
-  backgroundPrimary: "#121214",
-  backgroundSecondary: "#1c1c1e",
-  textPrimary: "#f4f4f9",
-  textSecondary: "#8e8e93",
-  accent: "#0a84ff",
-  borderSubtle: "#2c2c2e",
+  backgroundPrimary: "#000000", // System Dark Background
+  backgroundSecondary: "#1c1c1e", // System Primary Dark Background
+  textPrimary: "#ffffff", // System Label Dark
+  textSecondary: "#8e8e93", // System Secondary Label Dark
+  accent: "#0a84ff", // System Blue Dark
+  borderSubtle: "#3a3a3c", // System Separator Dark
   shadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
+  buttonHover: "rgba(10, 132, 255, 0.1)",
 };
 
-// 2. Define Styles Object, referencing the already-defined themes
+// 2. Define Styles Object, referencing the themes
 const styles = {
   light: lightTheme,
   dark: darkTheme,
 
-  // --- Component Styles ---
+  // --- Utility & Layout Styles ---
   container: (theme) => ({
     minHeight: "100vh",
-    padding: "30px",
+    padding: "20px",
     backgroundColor: theme.backgroundPrimary,
     color: theme.textPrimary,
-    fontFamily: "'SF Pro Display', 'Helvetica Neue', Arial, sans-serif",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'",
     display: "flex",
     justifyContent: "center",
     alignItems: "flex-start",
@@ -120,31 +61,26 @@ const styles = {
     borderRadius: "16px",
     boxShadow: theme.shadow,
     padding: "30px",
-    marginTop: "40px",
-    display: "grid",
-    gridTemplateColumns: "1fr",
+    marginTop: "60px", // Adjusted for fixed navigation
     gap: "40px",
     transition: "box-shadow 0.2s ease-in-out",
-    // Note: Inline media queries are often tricky/non-standard in pure React inline styles, 
-    // relying on JavaScript for responsiveness in the render function is safer.
   }),
-  title: {
+  title: (theme) => ({
     fontSize: "28px",
     fontWeight: "700",
     marginBottom: "30px",
     letterSpacing: "-0.5px",
-    // This is a responsive style that needs JavaScript logic in the component
-  },
-  sectionHeader: {
-    fontSize: "16px",
+    color: theme.textPrimary,
+  }),
+  sectionHeader: (theme) => ({
+    fontSize: "15px",
     fontWeight: "600",
-    // FIXED: Using darkTheme directly here is safe because darkTheme is defined above
-    color: darkTheme.textSecondary,
-    marginBottom: "10px",
-    marginTop: "20px",
+    color: theme.textSecondary,
+    marginBottom: "12px",
+    marginTop: "25px",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
-  },
+  }),
   label: (theme) => ({
     fontSize: "14px",
     fontWeight: "500",
@@ -152,125 +88,229 @@ const styles = {
     marginBottom: "4px",
     display: "block",
   }),
-  inputField: (theme) => ({
-    width: "100%",
-    padding: "10px 12px",
-    marginTop: "4px",
-    marginBottom: "16px",
-    border: `1px solid ${theme.borderSubtle}`,
-    borderRadius: "8px",
-    backgroundColor: theme.backgroundSecondary,
-    color: theme.textPrimary,
-    fontSize: "16px",
-    minHeight: "44px",
-    boxSizing: "border-box",
-    boxShadow: "inset 0 1px 3px rgba(0, 0, 0, 0.04)",
-    transition: "border-color 0.2s, box-shadow 0.2s",
-    WebkitAppearance: "none",
-    MozAppearance: "none",
-    appearance: "none",
-    // Pseudo-classes like :focus cannot be reliably done inline, 
-    // focus state will be subtle without external CSS/JS handlers.
-  }),
-  inputWrapper: {
-    position: "relative",
-  },
-  unit: (theme) => ({
-    position: "absolute",
-    right: "12px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    fontSize: "14px",
-    color: theme.textSecondary,
-    pointerEvents: "none",
-  }),
   separator: (theme) => ({
     height: "1px",
     backgroundColor: theme.borderSubtle,
-    margin: "20px 0",
+    margin: "25px 0",
   }),
-  resultContainer: {
-    paddingTop: "10px",
-  },
-  resultRow: {
+  resultRow: (theme) => ({
     display: "flex",
     justifyContent: "space-between",
-    padding: "8px 0",
+    padding: "10px 0",
     fontSize: "16px",
-  },
+    borderBottom: `1px solid ${theme.borderSubtle}`,
+    "&:last-child": { borderBottom: "none" },
+  }),
   resultLabel: (theme) => ({
     color: theme.textSecondary,
     fontWeight: "500",
   }),
-  resultValue: {
+  resultValue: (theme) => ({
     fontWeight: "600",
     textAlign: "right",
-  },
+    color: theme.textPrimary,
+  }),
   resultTotal: (theme) => ({
     fontWeight: "700",
     color: theme.accent,
     fontSize: "18px",
   }),
+  navButton: (theme) => ({
+    padding: "8px 14px",
+    borderRadius: "10px",
+    border: `1px solid ${theme.borderSubtle}`,
+    background: theme.backgroundSecondary,
+    color: theme.textPrimary,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "background 0.2s",
+    boxShadow: theme.shadow.split(",")[0],
+    "&:hover": {
+      background: theme.buttonHover,
+    }
+  }),
+  // Toggle Button styles need special handling for the SVG appearance in inline styles
   toggleButton: (theme) => ({
-    position: "absolute",
+    position: "fixed", // Changed to fixed for better UX
     top: "20px",
     right: "20px",
-    padding: "8px",
+    padding: "10px",
     borderRadius: "50%",
     backgroundColor: theme.backgroundSecondary,
-    border: "none",
+    border: `1px solid ${theme.borderSubtle}`,
     cursor: "pointer",
     transition: "background-color 0.2s, box-shadow 0.2s",
+    zIndex: 100,
   }),
 };
 
-// --- Spinner Icon ---
+// --- CUSTOM COMPONENTS ---
+
+// Select Component (using react-select)
+const ReactSelect = ({
+  label,
+  value,
+  onChange,
+  options,
+  isDisabled,
+  theme,
+}) => {
+  const selectOptions = options.map((o) => ({
+    value: o,
+    label: o,
+  }));
+
+  return (
+    <div style={{ marginBottom: "16px" }}>
+      <label style={styles.label(theme)}>{label}</label>
+      <Select
+        value={selectOptions.find((opt) => opt.value === value) || null}
+        onChange={(opt) => onChange(opt ? opt.value : "")}
+        options={selectOptions}
+        isDisabled={isDisabled}
+        isClearable
+        placeholder={`Select ${label}`}
+        styles={{
+          control: (base, state) => ({
+            ...base,
+            backgroundColor: theme.backgroundPrimary, // Use primary for input body
+            borderColor: state.isFocused ? theme.accent : theme.borderSubtle,
+            boxShadow: state.isFocused
+              ? `0 0 0 1px ${theme.accent}`
+              : "none",
+            minHeight: "44px",
+            borderRadius: "10px",
+            transition: "border-color 0.2s, box-shadow 0.2s, background-color 0.2s",
+            cursor: isDisabled ? "not-allowed" : "pointer",
+          }),
+          menu: (base) => ({
+            ...base,
+            backgroundColor: theme.backgroundSecondary,
+            borderRadius: "10px",
+            boxShadow: theme.shadow,
+            zIndex: 20,
+          }),
+          singleValue: (base) => ({
+            ...base,
+            color: theme.textPrimary,
+            fontWeight: "500",
+          }),
+          placeholder: (base) => ({
+            ...base,
+            color: theme.textSecondary,
+          }),
+          option: (base, state) => ({
+            ...base,
+            backgroundColor: state.isSelected
+              ? theme.accent
+              : state.isFocused
+                ? theme.buttonHover
+                : "transparent",
+            color: state.isSelected ? "#fff" : theme.textPrimary,
+            cursor: "pointer",
+            fontWeight: state.isSelected ? "600" : "400",
+            transition: "background-color 0.1s, color 0.1s",
+          }),
+        }}
+      />
+    </div>
+  );
+};
+
+// Input Component
+const ClarityInput = ({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+  unit,
+  theme,
+  disabled = false,
+}) => {
+  const inputStyle = {
+    width: "100%",
+    padding: "12px",
+    marginTop: "4px",
+    marginBottom: "16px",
+    border: `1px solid ${theme.borderSubtle}`,
+    borderRadius: "10px",
+    backgroundColor: theme.backgroundPrimary, // Use primary for input body
+    color: theme.textPrimary,
+    fontSize: "16px",
+    minHeight: "44px",
+    boxSizing: "border-box",
+    transition: "border-color 0.2s, box-shadow 0.2s, background-color 0.2s",
+    WebkitAppearance: "none",
+    MozAppearance: "none",
+    appearance: "none",
+    ...(disabled && { opacity: 0.7, cursor: "not-allowed" }),
+  };
+
+  return (
+    <div>
+      <label style={styles.label(theme)}>{label}</label>
+      <div style={{ position: "relative" }}>
+        <input
+          type={type}
+          style={inputStyle}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          disabled={disabled}
+        />
+        {unit && (
+          <span
+            style={{
+              position: "absolute",
+              right: "12px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              fontSize: "14px",
+              color: theme.textSecondary,
+              pointerEvents: "none",
+            }}
+          >
+            {unit}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Spinner Icon (Apple-like Activity Indicator)
 const Spinner = ({ theme }) => (
-  // Note: Inline styles cannot define @keyframes, so the animation property is non-functional without external CSS.
-  <svg style={{ width: "20px", height: "20px", color: theme.textPrimary, opacity: 0.75 }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-    <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-    <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+  <svg
+    style={{
+      width: "20px",
+      height: "20px",
+      color: theme.textPrimary,
+      opacity: 0.75,
+      // Note: Full rotation animation requires external CSS or a complex JS handler
+    }}
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+  >
+    <circle
+      style={{ opacity: 0.25 }}
+      cx="12"
+      cy="12"
+      r="10"
+      stroke="currentColor"
+      strokeWidth="4"
+    ></circle>
+    <path
+      style={{ opacity: 0.75 }}
+      fill="currentColor"
+      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+    ></path>
   </svg>
 );
 
-// --- Dropdown Component ---
-const ClaritySelect = ({ label, value, onChange, options, disabled, theme }) => (
-  <div>
-    <label style={styles.label(theme)}>{label}</label>
-    <select
-      style={styles.inputField(theme)}
-      value={value}
-      onChange={onChange}
-      disabled={disabled}
-    >
-      <option value="" disabled>Select {label}</option>
-      {options.map(o => (
-        <option key={o} value={o}>{o}</option>
-      ))}
-    </select>
-  </div>
-);
 
-// --- Input Component ---
-const ClarityInput = ({ label, value, onChange, type = "text", placeholder, unit, theme }) => (
-  <div>
-    <label style={styles.label(theme)}>{label}</label>
-    <div style={styles.inputWrapper}>
-      <input
-        type={type}
-        style={styles.inputField(theme)}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-      />
-      {unit && (
-        <span style={styles.unit(theme)}>{unit}</span>
-      )}
-    </div>
-  </div>
-);
-
-// --- Main App Component ---
+// --- MAIN APP COMPONENT ---
 function App() {
   const [cloths, setCloths] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -278,6 +318,7 @@ function App() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [items, setItems] = useState([]);
 
+  const navigate = useNavigate();
 
   const currentTheme = isDarkMode ? styles.dark : styles.light;
 
@@ -286,23 +327,32 @@ function App() {
   const [color, setColor] = useState("");
   const [quantity, setQuantity] = useState("");
   const [pricePerMeter, setPricePerMeter] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  // --- LOGIC FUNCTIONS ---
 
   const addItemToBill = () => {
-    if (!selected) return;
+    // 1. Validation
+    if (!selected) {
+      Swal.fire("Error", "Please select all fabric properties first.", "warning");
+      return;
+    }
 
     const qty = Number(quantity);
     const price = Number(pricePerMeter);
 
     if (!qty || qty <= 0) {
-      alert("Enter valid quantity");
+      Swal.fire("Error", "Enter a valid quantity (> 0).", "warning");
       return;
     }
 
-    if (price < 0 || pricePerMeter === "") {
-      alert("Enter valid price per meter");
+    if (!price || price <= 0) {
+      Swal.fire("Error", "Enter a valid price per meter (> 0).", "warning");
       return;
     }
 
+
+    // 2. Calculation (ensures latest calculated values are used)
     const item = {
       clothName,
       thickness,
@@ -311,16 +361,171 @@ function App() {
       rawLengthMeters,
       rawClothCost,
       stitchingCost,
-      totalCost
+      totalCost,
     };
 
-    setItems(prev => [...prev, item]);
+    // 3. Add Item & Reset
+    setItems((prev) => [...prev, item]);
+
 
     setQuantity("");
     setPricePerMeter("");
+
+    Swal.fire({
+      icon: "success",
+      title: "Item Added",
+      text: `${clothName} (${qty} pcs) added to bill.`,
+      timer: 1500,
+      showConfirmButton: false,
+    });
+  };
+
+  const exportBillPDF = async () => {
+    if (items.length === 0 || grandTotal <= 0) {
+      Swal.fire("Error", "Bill total must be greater than zero.", "warning");
+      return;
+    }
+    setIsSaving(true);
+
+    const dateStamp = Date.now().toString().slice(-4);
+    const { value: billNo } = await Swal.fire({
+      title: "Enter Bill Number",
+      input: "text",
+      inputPlaceholder: "Eg: JT-101",
+      inputValue: `JT-${dateStamp}`,
+      showCancelButton: true,
+      confirmButtonText: "Generate Bill",
+      cancelButtonText: "Cancel",
+      inputValidator: (value) => {
+        if (!value) return "Bill number is required";
+      },
+      backdrop: true,
+      allowOutsideClick: false,
+    });
+
+    if (!billNo) {
+      setIsSaving(false);
+      return;
+    }
+
+    try {
+      const d = new Date();
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const formattedDate =
+        String(d.getDate()).padStart(2, "0") +
+        " / " +
+        months[d.getMonth()] +
+        " / " +
+        d.getFullYear();
+
+      const normalizedItems = items.map((i) => ({
+        ...i,
+        rawLengthMeters: Number(i.rawLengthMeters || 0),
+        rawClothCost: Number(i.rawClothCost || 0),
+        stitchingCost: Number(i.stitchingCost || 0),
+        totalCost: Number(i.totalCost || 0),
+      }));
+
+      // Save to Google Sheet
+      await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "saveBill",
+          billNo,
+          items: normalizedItems,
+          grandTotal,
+        }),
+      });
+
+      // Generate PDF
+      const doc = new jsPDF("p", "mm", "a4");
+      let y = 20;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(18);
+      doc.text("JOTHI TAILORING", 105, y, { align: "center" });
+
+      y += 8;
+      doc.setFontSize(12);
+      doc.text("Cloth & Stitching Bill", 105, y, { align: "center" });
+
+      y += 6;
+      doc.line(15, y, 195, y);
+
+      y += 10;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.text(`Date: ${formattedDate}`, 15, y);
+      doc.text(`Bill No: ${billNo}`, 140, y);
+
+      y += 12;
+      doc.setFont("helvetica", "bold");
+      doc.text("Item / Description", 15, y);
+      doc.text("Qty", 120, y);
+      doc.text("Amount (Rs.)", 195, y, { align: "right" });
+
+      y += 4;
+      doc.line(15, y, 195, y);
+
+      doc.setFont("helvetica", "normal");
+      normalizedItems.forEach((item) => {
+        y += 8;
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+        }
+
+        doc.text(
+          `${item.clothName} / ${item.thickness} / ${item.color}`,
+          15,
+          y
+        );
+        doc.text(String(item.quantity), 125, y);
+        doc.text(
+          `Rs ${item.totalCost.toFixed(2)}`,
+          195,
+          y,
+          { align: "right" }
+        );
+      });
+
+      y += 10;
+      doc.line(15, y, 195, y);
+
+      y += 10;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text(
+        `GRAND TOTAL : Rs ${grandTotal.toFixed(2)}`,
+        195,
+        y,
+        { align: "right" }
+      );
+
+      y += 15;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("Thank you for your business!", 105, y, { align: "center" });
+
+      doc.save(`${billNo}.pdf`);
+
+      Swal.fire({
+        icon: "success",
+        title: "Bill Generated",
+        text: `Bill ${billNo} saved and exported successfully!`,
+      });
+
+      setItems([]);
+    } catch (error) {
+      Swal.fire("Error", "Failed to generate or save bill.", "error");
+      console.error("Bill Export Error:", error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
 
+  // --- EFFECTS ---
 
   // Effect to handle responsiveness
   useEffect(() => {
@@ -328,158 +533,35 @@ function App() {
       setIsMobile(window.innerWidth < 768);
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
-
-  const grandTotal = items.reduce(
-    (sum, item) => sum + item.totalCost,
-    0
-  );
-
-  const d = new Date();
-
-  const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-  ];
-
-  const formattedDate =
-    String(d.getDate()).padStart(2, "0") +
-    " / " +
-    months[d.getMonth()] +
-    " / " +
-    d.getFullYear();
-
-
-  const exportBillPDF = () => {
-    if (items.length === 0) return;
-
-    const doc = new jsPDF("p", "mm", "a4");
-    let y = 20;
-
-    // ===== Header =====
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.text("JOTHI TAILORING", 105, y, { align: "center" });
-
-    y += 8;
-    doc.setFontSize(12);
-    doc.text("Cloth & Stitching Bill", 105, y, { align: "center" });
-
-    y += 6;
-    doc.line(15, y, 195, y);
-
-    // ===== Meta =====
-    y += 10;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-
-    doc.text(`Date : ${formattedDate}`, 15, y);
-    doc.text(`Bill No : JT-${Date.now().toString().slice(-4)}`, 140, y);
-
-    // ===== Table Header =====
-    y += 12;
-    doc.setFont("helvetica", "bold");
-    doc.text("Item", 15, y);
-    doc.text("Qty", 120, y);
-    doc.text("Amount (Rs.)", 195, y, { align: "right" });
-
-    y += 4;
-    doc.line(15, y, 195, y);
-
-    // ===== Items =====
-    doc.setFont("helvetica", "normal");
-
-    items.forEach(item => {
-      y += 8;
-
-      // Page break handling
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-      }
-
-      doc.text(
-        `${item.clothName} / ${item.thickness} / ${item.color}`,
-        15,
-        y
-      );
-      doc.text(String(item.quantity), 125, y);
-      doc.text(
-        `Rs. ${item.totalCost.toFixed(2)}`,
-        195,
-        y,
-        { align: "right" }
-      );
-    });
-
-    // ===== Grand Total =====
-    y += 10;
-    doc.line(15, y, 195, y);
-
-    y += 10;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text(
-      `GRAND TOTAL : Rs. ${grandTotal.toFixed(2)}`,
-      195,
-      y,
-      { align: "right" }
-    );
-
-    // ===== Footer =====
-    y += 15;
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(
-      "Thank you for your business!",
-      105,
-      y,
-      { align: "center" }
-    );
-
-    doc.save("Jothi_Tailoring_Bill.pdf");
-  };
-
-
 
   // Effect to handle data fetching
   useEffect(() => {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${SHEET_NAME}`;
-
-    fetch(url)
-      .then(res => res.text())
-      .then(csv => {
-        const rows = csv.trim().split("\n");
-        const headers = rows[0].split(",").map(h => h.replace(/"/g, ""));
-
-        const data = rows.slice(1).map(row => {
-          const values = row.split(/","/).map(v => v.replace(/"/g, ""));
-          const obj = {};
-          headers.forEach((h, i) => { obj[h] = values[i]; });
-
-          return {
-            cloth_name: obj.cloth_name,
-            thickness: obj.thickness,
-            color: obj.color,
-            req_length: Number(obj.req_length_in),
-            req_width: Number(obj.req_width_in),
-            stitch_rate: Number(obj.stitch_rate)
-          };
-        });
+    fetch(`${API_URL}?action=getCloths`)
+      .then((res) => res.json())
+      .then((data) => {
         setCloths(data);
         setIsLoading(false);
       })
-      .catch(() => setIsLoading(false));
+      .catch((error) => {
+        setIsLoading(false);
+        console.error("Fetch Error:", error);
+        Swal.fire("Error", "Could not load fabric data.", "error");
+      });
   }, []);
 
-  const clothNames = [...new Set(cloths.map(c => c.cloth_name))].filter(Boolean);
-  const thicknessOptions = [...new Set(cloths.filter(c => c.cloth_name === clothName).map(c => c.thickness))].filter(Boolean);
-  const colorOptions = [...new Set(cloths.filter(c => c.cloth_name === clothName && c.thickness === thickness).map(c => c.color))].filter(Boolean);
+  // --- CALCULATIONS ---
 
+  // Fabric options derivation
+  const clothNames = [...new Set(cloths.map((c) => c.cloth_name))].filter(Boolean);
+  const thicknessOptions = [...new Set(cloths.filter((c) => c.cloth_name === clothName).map((c) => c.thickness))].filter(Boolean);
+  const colorOptions = [...new Set(cloths.filter((c) => c.cloth_name === clothName && c.thickness === thickness).map((c) => c.color))].filter(Boolean);
+
+  // Selected fabric object
   const selected = cloths.find(
-    c => c.cloth_name === clothName && c.thickness === thickness && c.color === color
+    (c) => c.cloth_name === clothName && c.thickness === thickness && c.color === color
   );
 
   let piecesPerRow = 0;
@@ -490,72 +572,196 @@ function App() {
   let stitchingCost = 0;
   let totalCost = 0;
 
-  if (selected && quantity > 0 && pricePerMeter >= 0) {
-    piecesPerRow = Math.floor(RAW_WIDTH_IN / selected.req_width);
-    rowsNeeded = Math.ceil(quantity / piecesPerRow);
-    rawLengthInches = rowsNeeded * selected.req_length;
-    rawLengthMeters = rawLengthInches / INCHES_PER_METER;
-    rawClothCost = rawLengthMeters * pricePerMeter;
-    stitchingCost = quantity * selected.stitch_rate;
-    totalCost = rawClothCost + stitchingCost;
+  // Primary calculation logic
+  if (selected && Number(quantity) > 0 && Number(pricePerMeter) >= 0) {
+    const qty = Number(quantity);
+    const price = Number(pricePerMeter);
+    const reqWidth = Number(selected.req_width_in);
+    const reqLength = Number(selected.req_length_in);
+    const stitchRate = Number(selected.stitch_rate);
+
+    // Ensure numeric values are valid
+    if (qty > 0 && price >= 0 && reqWidth > 0 && reqLength > 0) {
+      piecesPerRow = Math.floor(RAW_WIDTH_IN / reqWidth);
+      if (piecesPerRow === 0) piecesPerRow = 1; // Fallback, shouldn't happen with 60" width
+
+      rowsNeeded = Math.ceil(qty / piecesPerRow);
+
+      rawLengthInches = rowsNeeded * reqLength;
+      rawLengthMeters = rawLengthInches / INCHES_PER_METER;
+
+      rawClothCost = rawLengthMeters * price;
+      stitchingCost = qty * stitchRate;
+
+      totalCost = rawClothCost + stitchingCost;
+    }
   }
 
-  // Dynamic styles based on viewport size (to replace CSS media queries)
+  // Grand Total for the entire bill
+  const grandTotal = items.reduce(
+    (sum, item) => sum + Number(item.totalCost || 0),
+    0
+  );
+
+
+  // --- DYNAMIC STYLES ---
+
   const cardStyle = {
     ...styles.card(currentTheme),
+    display: "grid",
     gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
   };
   const titleStyle = {
-    ...styles.title,
+    ...styles.title(currentTheme),
     gridColumn: isMobile ? "auto" : "1 / -1",
   };
   const inputColumnStyle = {
-    paddingRight: isMobile ? "0" : "20px"
+    paddingRight: isMobile ? "0" : "20px",
   };
   const resultColumnStyle = {
-    paddingLeft: isMobile ? "0" : "20px"
+    paddingLeft: isMobile ? "0" : "20px",
+    borderLeft: isMobile ? "none" : `1px solid ${currentTheme.borderSubtle}`,
+    paddingTop: isMobile ? "20px" : "0",
   };
   const inputGridStyle = {
     display: "grid",
     gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-    gap: "15px"
-  }
+    gap: "15px",
+  };
+
+  // --- RENDER ---
 
   return (
     <div style={styles.container(currentTheme)}>
+      {/* Fixed Navigation */}
+      <div
+        style={{
+          position: "fixed",
+          top: 20,
+          left: 20,
+          display: "flex",
+          gap: "10px",
+          zIndex: 50,
+        }}
+      >
+        <button
+          onClick={() => navigate("/")}
+          style={styles.navButton(currentTheme)}
+        >
+          🧮 Calculator
+        </button>
+        <button
+          onClick={() => navigate("/history")}
+          style={styles.navButton(currentTheme)}
+        >
+          📜 History
+        </button>
+        <button
+          onClick={() => navigate("/fabric")}
+          style={styles.navButton(currentTheme)}
+        >
+          🧵 Update Cloth
+        </button>
+
+        <button
+          onClick={() => setIsDarkMode(!isDarkMode)}
+          style={styles.toggleButton(currentTheme)}
+          title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+        >
+          <svg
+            style={{ width: "24px", height: "24px", color: currentTheme.textSecondary }}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            {isDarkMode ? (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+              />
+            ) : (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+              />
+            )}
+          </svg>
+        </button>
+      </div>
+
+      {/* Dark Mode Toggle Button */}
+
       <button
         onClick={() => setIsDarkMode(!isDarkMode)}
-        style={styles.toggleButton(currentTheme)}
+        style={{
+          ...styles.toggleButton(currentTheme),
+          position: "fixed",
+          top: 20,
+          right: 20,
+          zIndex: 50,
+        }}
+        title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
       >
-        <svg style={{ width: "24px", height: "24px", color: currentTheme.textSecondary }} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          {isDarkMode ?
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-            :
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-          }
+        <svg
+          style={{ width: "24px", height: "24px", color: currentTheme.textSecondary }}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          {isDarkMode ? (
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+            />
+          ) : (
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+            />
+          )}
         </svg>
       </button>
 
+      {/* Main Card */}
       <div style={cardStyle}>
-
-        <h2 style={titleStyle}>Cloth Requirement Calculator</h2>
+        <h2 style={titleStyle}>Fabric Requirement & Cost Calculator</h2>
 
         {isLoading ? (
-          <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "center", alignItems: "center", padding: "40px", fontSize: "18px", color: currentTheme.textSecondary }}>
+          <div
+            style={{
+              gridColumn: "1 / -1",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              padding: "40px",
+              fontSize: "18px",
+              color: currentTheme.textSecondary,
+            }}
+          >
             <Spinner theme={currentTheme} />
-            <span style={{ marginLeft: "10px" }}>Loading fabric data...</span>
+            <span style={{ marginLeft: "10px", fontWeight: "500" }}>Loading fabric data...</span>
           </div>
         ) : (
           <>
-            {/* Column 1: Inputs */}
+            {/* Column 1: Inputs & Actions */}
             <div style={inputColumnStyle}>
+              <div style={styles.sectionHeader(currentTheme)}>Fabric Selection</div>
 
-              <div style={styles.sectionHeader}>Fabric Selection</div>
-
+              {/* Fabric Selects */}
               <ReactSelect
                 label="Cloth Type"
                 value={clothName}
-                onChange={val => {
+                onChange={(val) => {
                   setClothName(val);
                   setThickness("");
                   setColor("");
@@ -567,7 +773,7 @@ function App() {
               <ReactSelect
                 label="Thickness / Grade"
                 value={thickness}
-                onChange={val => {
+                onChange={(val) => {
                   setThickness(val);
                   setColor("");
                 }}
@@ -579,7 +785,7 @@ function App() {
               <ReactSelect
                 label="Color"
                 value={color}
-                onChange={val => setColor(val)}
+                onChange={(val) => setColor(val)}
                 options={colorOptions}
                 isDisabled={!clothName || !thickness}
                 theme={currentTheme}
@@ -588,147 +794,170 @@ function App() {
               <div style={styles.separator(currentTheme)} />
 
               {/* Order Details */}
-              <div style={styles.sectionHeader}>Order Details</div>
+              <div style={styles.sectionHeader(currentTheme)}>Order Details</div>
 
               <div style={inputGridStyle}>
                 <ClarityInput
                   label="Quantity (Pieces)"
                   type="number"
                   value={quantity}
-                  onChange={e => setQuantity(e.target.value)}
+                  onChange={(e) => setQuantity(e.target.value)}
                   placeholder="0"
                   theme={currentTheme}
+                  disabled={!selected}
                 />
 
                 <ClarityInput
                   label="Price per Meter"
                   type="number"
                   value={pricePerMeter}
-                  onChange={e => setPricePerMeter(e.target.value)}
+                  onChange={(e) => setPricePerMeter(e.target.value)}
                   unit="₹ / m"
-                  placeholder="0"
+                  placeholder="0.00"
                   theme={currentTheme}
                 />
-
               </div>
 
-              {/* Add Item */}
+              <div style={{ ...styles.resultRow(currentTheme), borderBottom: 'none', padding: '10px 0' }}>
+                <span style={styles.resultLabel(currentTheme)}>Stitch Rate per Piece</span>
+                <span style={styles.resultValue(currentTheme)}>₹{selected ? Number(selected.stitch_rate).toFixed(2) : "0.00"}</span>
+              </div>
+
+
+              {/* Action Buttons */}
               <button
                 onClick={addItemToBill}
-                disabled={!selected}
+                disabled={
+                  !selected ||
+                  Number(quantity) <= 0 ||
+                  Number(pricePerMeter) <= 0 ||
+                  isSaving
+                }
                 style={{
                   marginTop: "14px",
                   padding: "12px",
                   width: "100%",
-                  borderRadius: "8px",
+                  borderRadius: "10px",
                   backgroundColor: currentTheme.accent,
                   color: "#fff",
                   border: "none",
                   fontWeight: "600",
-                  fontSize: "14px",
-                  cursor: selected ? "pointer" : "not-allowed",
-                  opacity: selected ? 1 : 0.5
+                  fontSize: "16px",
+                  cursor: (selected && quantity && pricePerMeter) ? "pointer" : "not-allowed",
+                  opacity: (selected && quantity && pricePerMeter) ? 1 : 0.4,
+                  transition: "background-color 0.2s, opacity 0.2s",
+                  boxShadow: "0 2px 8px rgba(0, 122, 255, 0.3)",
                 }}
               >
-                Add Item to Bill
+                {isSaving ? "Processing..." : "Add Item to Bill"}
               </button>
 
-              {/* Export Bill */}
               <button
                 onClick={exportBillPDF}
-                disabled={items.length === 0}
+                disabled={items.length === 0 || isSaving}
                 style={{
                   marginTop: "10px",
-                  padding: "10px",
+                  padding: "12px",
                   width: "100%",
-                  borderRadius: "8px",
+                  borderRadius: "10px",
                   backgroundColor: items.length
                     ? currentTheme.accent
                     : currentTheme.borderSubtle,
-                  color: "#fff",
+                  color: items.length ? "#fff" : currentTheme.textSecondary,
                   border: "none",
                   fontWeight: "600",
-                  fontSize: "14px",
-                  cursor: items.length ? "pointer" : "not-allowed",
-                  opacity: items.length ? 1 : 0.6
+                  fontSize: "16px",
+                  cursor: items.length && !isSaving ? "pointer" : "not-allowed",
+                  opacity: items.length && !isSaving ? 1 : 0.6,
+                  transition: "background-color 0.2s, opacity 0.2s",
                 }}
               >
-                Export Bill as PDF
+                {isSaving ? "Saving Bill..." : `Export Bill as PDF (${items.length} items)`}
               </button>
-
             </div>
 
-
-            {/* Column 2: Results */}
+            {/* Column 2: Results & Summary */}
             <div style={resultColumnStyle}>
               {selected ? (
-                <div style={styles.resultContainer}>
-                  <div style={styles.sectionHeader}>📐 Cutting Plan</div>
-                  <div style={styles.resultRow}>
-                    <span style={styles.resultLabel(currentTheme)}>Raw Cloth Width (Fixed)</span>
-                    <span style={styles.resultValue}>60 in</span>
+                <div style={{ padding: "0 10px" }}>
+
+                  {/* Cutting Plan */}
+                  <div style={styles.sectionHeader(currentTheme)}>📐 Cutting Plan</div>
+                  <div style={{ marginBottom: '20px' }}>
+                    <div style={styles.resultRow(currentTheme)}>
+                      <span style={styles.resultLabel(currentTheme)}>Raw Cloth Width (Fixed)</span>
+                      <span style={styles.resultValue(currentTheme)}>{RAW_WIDTH_IN} in</span>
+                    </div>
+                    <div style={styles.resultRow(currentTheme)}>
+                      <span style={styles.resultLabel(currentTheme)}>Piece Width / Length</span>
+                      <span style={styles.resultValue(currentTheme)}>{Number(selected.req_width_in)}" / {Number(selected.req_length_in)}"</span>
+                    </div>
+                    <div style={styles.resultRow(currentTheme)}>
+                      <span style={styles.resultLabel(currentTheme)}>Pieces per Row (Cut)</span>
+                      <span style={styles.resultValue(currentTheme)}>{piecesPerRow}</span>
+                    </div>
+                    <div style={styles.resultRow(currentTheme)}>
+                      <span style={styles.resultLabel(currentTheme)}>Total Rows Needed</span>
+                      <span style={styles.resultValue(currentTheme)}>{rowsNeeded}</span>
+                    </div>
                   </div>
-                  <div style={styles.resultRow}>
-                    <span style={styles.resultLabel(currentTheme)}>Piece Width / Length</span>
-                    <span style={styles.resultValue}>{selected.req_width}" / {selected.req_length}"</span>
-                  </div>
-                  <div style={styles.resultRow}>
-                    <span style={styles.resultLabel(currentTheme)}>Pieces per Row (Cut)</span>
-                    <span style={styles.resultValue}>{piecesPerRow}</span>
-                  </div>
-                  <div style={styles.resultRow}>
-                    <span style={styles.resultLabel(currentTheme)}>Total Rows Needed</span>
-                    <span style={styles.resultValue}>{rowsNeeded}</span>
+
+                  {/* Material & Labor Cost */}
+                  <div style={styles.sectionHeader(currentTheme)}>💵 Material & Labor Cost (Current Item)</div>
+                  <div style={{ marginBottom: '20px' }}>
+                    <div style={styles.resultRow(currentTheme)}>
+                      <span style={styles.resultLabel(currentTheme)}>Raw Length Required</span>
+                      <span style={styles.resultValue(currentTheme)}>{rawLengthInches} in ({rawLengthMeters.toFixed(2)} m)</span>
+                    </div>
+                    <div style={styles.resultRow(currentTheme)}>
+                      <span style={styles.resultLabel(currentTheme)}>Raw Cloth Cost</span>
+                      <span style={styles.resultValue(currentTheme)}>₹{rawClothCost.toFixed(2)}</span>
+                    </div>
+                    <div style={styles.resultRow(currentTheme)}>
+                      <span style={styles.resultLabel(currentTheme)}>Total Stitching Cost</span>
+                      <span style={styles.resultValue(currentTheme)}>₹{stitchingCost.toFixed(2)}</span>
+                    </div>
                   </div>
 
                   <div style={styles.separator(currentTheme)}></div>
 
-                  <div style={styles.sectionHeader}>💵 Material & Labor Cost</div>
-
-                  <div style={styles.resultRow}>
-                    <span style={styles.resultLabel(currentTheme)}>Raw Length Required</span>
-                    <span style={styles.resultValue}>{rawLengthInches} in ({rawLengthMeters.toFixed(2)} m)</span>
-                  </div>
-                  <div style={styles.resultRow}>
-                    <span style={styles.resultLabel(currentTheme)}>Raw Cloth Cost</span>
-                    <span style={styles.resultValue}>₹{rawClothCost.toFixed(2)}</span>
-                  </div>
-                  <div style={styles.resultRow}>
-                    <span style={styles.resultLabel(currentTheme)}>Total Stitching Cost</span>
-                    <span style={styles.resultValue}>₹{stitchingCost.toFixed(2)}</span>
-                  </div>
-
-                  {items.length > 0 && (
-                    <div style={{ marginBottom: "20px" }}>
-                      <div style={styles.sectionHeader}>Bill Items</div>
-
-                      {items.map((item, i) => (
-                        <div key={i} style={styles.resultRow}>
-                          <span>
-                            {item.clothName} ({item.quantity})
-                          </span>
-                          <span>₹{item.totalCost.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div style={{ ...styles.resultRow, marginTop: "15px" }}>
+                  {/* Estimated Total */}
+                  <div style={{ ...styles.resultRow(currentTheme), borderBottom: 'none' }}>
                     <span style={styles.resultTotal(currentTheme)}>ESTIMATED TOTAL COST</span>
                     <span style={styles.resultTotal(currentTheme)}>₹{totalCost.toFixed(2)}</span>
                   </div>
 
-                  <div style={{ ...styles.resultRow, marginTop: "10px" }}>
-                    <span style={styles.resultTotal(currentTheme)}>GRAND TOTAL</span>
-                    <span style={styles.resultTotal(currentTheme)}>
-                      ₹{grandTotal.toFixed(2)}
-                    </span>
-                  </div>
+                  {/* Bill Items Summary */}
+                  {items.length > 0 && (
+                    <div style={{ marginTop: "30px" }}>
+                      <div style={styles.sectionHeader(currentTheme)}>📝 Bill Summary ({items.length} Items)</div>
+                      <div style={{ maxHeight: '150px', overflowY: 'auto', paddingRight: '10px' }}>
+                        {items.map((item, i) => (
+                          <div key={i} style={{ ...styles.resultRow(currentTheme), fontSize: '14px', padding: '6px 0' }}>
+                            <span style={styles.resultLabel(currentTheme)}>
+                              {item.clothName} ({item.quantity} pcs)
+                            </span>
+                            <span style={styles.resultValue(currentTheme)}>₹{item.totalCost.toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={styles.separator(currentTheme)}></div>
+
+                      {/* Grand Total */}
+                      <div style={{ ...styles.resultRow(currentTheme), borderBottom: 'none' }}>
+                        <span style={styles.resultTotal(currentTheme)}>GRAND TOTAL (Bill)</span>
+                        <span style={styles.resultTotal(currentTheme)}>
+                          ₹{grandTotal.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                 </div>
               ) : (
                 <div style={{ textAlign: "center", padding: "40px", color: currentTheme.textSecondary }}>
-                  <p style={{ fontWeight: "600" }}>Select cloth, thickness, and color to calculate requirements.</p>
+                  <p style={{ fontWeight: "600", fontSize: "16px" }}>Select a complete fabric item to see calculations.</p>
+                  <p style={{ marginTop: "10px", fontSize: "14px" }}>The cutting plan will show how much raw cloth is needed.</p>
                 </div>
               )}
             </div>
