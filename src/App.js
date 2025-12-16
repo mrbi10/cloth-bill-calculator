@@ -1070,7 +1070,11 @@ function App() {
                         {items.map((item, i) => (
                           <div key={i} style={{ ...styles.resultRow(currentTheme), fontSize: '14px', padding: '6px 0' }}>
                             <span style={styles.resultLabel(currentTheme)}>
-                              {item.clothName} ({item.quantity} pcs)
+                              <strong>{item.clothName}</strong>{" "}
+                              <span style={{ opacity: 0.7 }}>
+                                ({item.thickness}, {item.color})
+                              </span>{" "}
+                              · {item.quantity} pcs
                             </span>
                             <span style={styles.resultValue(currentTheme)}>₹{item.totalCost.toFixed(2)}</span>
                           </div>
